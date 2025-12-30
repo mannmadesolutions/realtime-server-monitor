@@ -50,9 +50,11 @@
     window.rtsmKillProcess = killProcess;
     
     function loadProcesses(filter) {
+        console.log('loadProcesses called with:', filter, 'currentFilter was:', currentFilter);
         currentFilter = filter;
         $('.rtsm-filter button').removeClass('active');
         $('.rtsm-filter button[data-filter="' + filter + '"]').addClass('active');
+        console.log('Active button set to:', filter);
         $('#rtsm-process-table').html('<tr><td colspan="7" style="text-align:center;"><?php _e('Loading...', 'realtime-server-monitor'); ?></td></tr>');
         $.post(ajaxurl, { action: 'rtsm_get_processes', nonce: nonce, filter: filter }, function(r) {
             if (r.success) renderProcesses(r.data.processes);
@@ -76,15 +78,23 @@
     function buildPopup() {
         if (popupBuilt) return;
         
+        // Build filter buttons with currentFilter highlighted
+        const allActive = currentFilter === 'all' ? ' active' : '';
+        const cpuActive = currentFilter === 'high-cpu' ? ' active' : '';
+        const phpActive = currentFilter === 'php' ? ' active' : '';
+        const pythonActive = currentFilter === 'python' ? ' active' : '';
+        const nodeActive = currentFilter === 'node' ? ' active' : '';
+        const mysqlActive = currentFilter === 'mysql' ? ' active' : '';
+        
         const html = '<div class="rtsm-popup-grid"></div>' +
             '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4>' +
             '<div class="rtsm-filter">' +
-                '<button data-filter="all" class="active">All</button>' +
-                '<button data-filter="high-cpu">High CPU</button>' +
-                '<button data-filter="php">PHP</button>' +
-                '<button data-filter="python">Python</button>' +
-                '<button data-filter="node">Node</button>' +
-                '<button data-filter="mysql">MySQL</button>' +
+                '<button data-filter="all" class="' + allActive + '">All</button>' +
+                '<button data-filter="high-cpu" class="' + cpuActive + '">High CPU</button>' +
+                '<button data-filter="php" class="' + phpActive + '">PHP</button>' +
+                '<button data-filter="python" class="' + pythonActive + '">Python</button>' +
+                '<button data-filter="node" class="' + nodeActive + '">Node</button>' +
+                '<button data-filter="mysql" class="' + mysqlActive + '">MySQL</button>' +
             '</div>' +
             '<table class="rtsm-table">' +
                 '<thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead>' +
@@ -96,10 +106,13 @@
         
         // Attach filter button handlers once
         $('.rtsm-filter button').on('click', function() {
-            loadProcesses($(this).data('filter'));
+            const filter = $(this).data('filter');
+            console.log('Filter clicked:', filter);
+            loadProcesses(filter);
         });
         
         popupBuilt = true;
+        console.log('Popup built with filter:', currentFilter);
     }
     
     function update() {
@@ -117,6 +130,7 @@
     }
     
     function updatePopup(d) {
+        console.log('updatePopup called, currentFilter is:', currentFilter);
         const lc = d.load['1min'] >= 6 ? 'danger' : (d.load['1min'] >= 4 ? 'warning' : 'success');
         const statsHtml = '<div class="rtsm-popup-card ' + lc + '"><h4><?php _e('Load (1m)', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value ' + lc + '">' + d.load['1min'] + '</div><div class="rtsm-popup-subtitle">5m: ' + d.load['5min'] + ' | 15m: ' + d.load['15min'] + '</div></div>' +
             '<div class="rtsm-popup-card"><h4><?php _e('CPU', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.cpu_usage + '%</div></div>' +
