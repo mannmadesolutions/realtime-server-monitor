@@ -88,30 +88,19 @@
     
     function updatePopup(d) {
         const lc = d.load['1min'] >= 6 ? 'danger' : (d.load['1min'] >= 4 ? 'warning' : 'success');
-        
-        // Update only the stats cards, preserve the process table
         const statsHtml = '<div class="rtsm-popup-grid"><div class="rtsm-popup-card ' + lc + '"><h4><?php _e('Load (1m)', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value ' + lc + '">' + d.load['1min'] + '</div><div class="rtsm-popup-subtitle">5m: ' + d.load['5min'] + ' | 15m: ' + d.load['15min'] + '</div></div><div class="rtsm-popup-card"><h4><?php _e('CPU', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.cpu_usage + '%</div></div><div class="rtsm-popup-card"><h4><?php _e('Memory', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.memory.used + 'MB</div><div class="rtsm-popup-subtitle">' + d.memory.percent + '% of ' + d.memory.total + 'MB</div></div><div class="rtsm-popup-card"><h4><?php _e('Connections', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.connections + '</div></div></div>';
         
-        // Check if process table exists (already initialized)
-        if ($('#rtsm-process-table').length) {
-            // Just update the stats cards
-            if ($('.rtsm-popup-grid').length) {
-                $('.rtsm-popup-grid').replaceWith(statsHtml);
-            }
-            // Refresh the current filter view
-            loadProcesses(currentFilter);
+        const isInitialized = $('#rtsm-process-table').length > 0;
+        
+        if (isInitialized) {
+            // Only update the stats cards, DON'T reload processes
+            $('.rtsm-popup-grid').replaceWith(statsHtml);
         } else {
-            // First time - build entire popup
-            let prows = '';
-            if (d.processes && d.processes.length) {
-                d.processes.forEach(function(p) {
-                    const cs = p.cpu >= 50 ? 'style="color: #d63638; font-weight: 600;"' : (p.cpu >= 25 ? 'style="color: #dba617; font-weight: 600;"' : '');
-                    const kb = p.killable ? '<button class="rtsm-kill-btn" onclick="rtsmKillProcess(' + p.pid + ', false)">×</button>' : '<span style="color:#ccc;">🔒</span>';
-                    prows += '<tr><td>' + p.pid + '</td><td>' + p.user + '</td><td ' + cs + '>' + p.cpu + '%</td><td>' + p.mem + '%</td><td>' + (p.elapsed || '-') + '</td><td>' + p.command + '</td><td>' + kb + '</td></tr>';
-                });
-            }
-            $('#rtsm-popup-content').html(statsHtml + '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4><div class="rtsm-filter"><button data-filter="all" class="active">All</button><button data-filter="high-cpu">High CPU</button><button data-filter="php">PHP</button><button data-filter="python">Python</button><button data-filter="node">Node</button><button data-filter="mysql">MySQL</button></div><table class="rtsm-table"><thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead><tbody id="rtsm-process-table">' + (prows || '<tr><td colspan="7" style="text-align:center; color:#999;"><?php _e('No processes', 'realtime-server-monitor'); ?></td></tr>') + '</tbody></table><p style="text-align: center; font-size: 10px; color: #999; margin-top: 10px;">Last: ' + d.timestamp + ' • <?php echo get_option('rtsm_refresh_interval', 10); ?>s</p>');
+            // First time - build structure and load processes
+            $('#rtsm-popup-content').html(statsHtml + '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4><div class="rtsm-filter"><button data-filter="all" class="active">All</button><button data-filter="high-cpu">High CPU</button><button data-filter="php">PHP</button><button data-filter="python">Python</button><button data-filter="node">Node</button><button data-filter="mysql">MySQL</button></div><table class="rtsm-table"><thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead><tbody id="rtsm-process-table"><tr><td colspan="7" style="text-align:center;"><?php _e('Loading...', 'realtime-server-monitor'); ?></td></tr></tbody></table><p style="text-align: center; font-size: 10px; color: #999; margin-top: 10px;">Last: ' + d.timestamp + ' • <?php echo get_option('rtsm_refresh_interval', 10); ?>s</p>');
             $('.rtsm-filter button').on('click', function() { loadProcesses($(this).data('filter')); });
+            // Initial load
+            loadProcesses('all');
         }
     }
     
