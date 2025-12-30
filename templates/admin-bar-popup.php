@@ -1,4 +1,5 @@
 <?php if (!defined('ABSPATH')) exit; ?>
+<!-- RTSM v1.0.0 - Build: <?php echo time(); ?> -->
 <style>
 #wpadminbar .rtsm-admin-bar > .ab-item { padding: 0 10px !important; }
 #rtsm-popup { display: none; position: fixed; top: 32px; right: 20px; width: 450px; max-height: 80vh; overflow-y: auto; background: white; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 999999; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
