@@ -37,7 +37,7 @@
 
 <script>
 (function($) {
-    let popupInterval, isOpen = false, currentFilter = 'all';
+    let popupInterval, isOpen = false, currentFilter = 'all', popupBuilt = false;
     const nonce = '<?php echo wp_create_nonce('rtsm_nonce'); ?>';
     
     function killProcess(pid, force) {
@@ -51,7 +51,8 @@
     
     function loadProcesses(filter) {
         currentFilter = filter;
-        $('.rtsm-filter button').removeClass('active').filter('[data-filter="' + filter + '"]').addClass('active');
+        $('.rtsm-filter button').removeClass('active');
+        $('.rtsm-filter button[data-filter="' + filter + '"]').addClass('active');
         $('#rtsm-process-table').html('<tr><td colspan="7" style="text-align:center;"><?php _e('Loading...', 'realtime-server-monitor'); ?></td></tr>');
         $.post(ajaxurl, { action: 'rtsm_get_processes', nonce: nonce, filter: filter }, function(r) {
             if (r.success) renderProcesses(r.data.processes);
@@ -72,6 +73,35 @@
         $('#rtsm-process-table').html(rows);
     }
     
+    function buildPopup() {
+        if (popupBuilt) return;
+        
+        const html = '<div class="rtsm-popup-grid"></div>' +
+            '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4>' +
+            '<div class="rtsm-filter">' +
+                '<button data-filter="all" class="active">All</button>' +
+                '<button data-filter="high-cpu">High CPU</button>' +
+                '<button data-filter="php">PHP</button>' +
+                '<button data-filter="python">Python</button>' +
+                '<button data-filter="node">Node</button>' +
+                '<button data-filter="mysql">MySQL</button>' +
+            '</div>' +
+            '<table class="rtsm-table">' +
+                '<thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead>' +
+                '<tbody id="rtsm-process-table"></tbody>' +
+            '</table>' +
+            '<p id="rtsm-timestamp" style="text-align: center; font-size: 10px; color: #999; margin-top: 10px;"></p>';
+        
+        $('#rtsm-popup-content').html(html);
+        
+        // Attach filter button handlers once
+        $('.rtsm-filter button').on('click', function() {
+            loadProcesses($(this).data('filter'));
+        });
+        
+        popupBuilt = true;
+    }
+    
     function update() {
         $.post(ajaxurl, { action: 'rtsm_get_stats', nonce: nonce }, function(r) {
             if (r.success) {
@@ -82,40 +112,19 @@
     }
     
     function updateAdminBar(d) {
-        const l = d.load['1min'], icon = l >= 6 ? '🔴' : (l >= 4 ? '��' : '📊'), color = l >= 6 ? '#d63638' : (l >= 4 ? '#dba617' : '#00a32a');
+        const l = d.load['1min'], icon = l >= 6 ? '🔴' : (l >= 4 ? '🟡' : '📊'), color = l >= 6 ? '#d63638' : (l >= 4 ? '#dba617' : '#00a32a');
         $('#wp-admin-bar-rtsm-server-monitor .ab-item').html('<span style="display: flex; align-items: center; gap: 5px;"><span>' + icon + '</span><span style="color: ' + color + '; font-weight: 600;">' + l + '</span></span>');
     }
     
     function updatePopup(d) {
         const lc = d.load['1min'] >= 6 ? 'danger' : (d.load['1min'] >= 4 ? 'warning' : 'success');
-        const statsHtml = '<div class="rtsm-popup-grid"><div class="rtsm-popup-card ' + lc + '"><h4><?php _e('Load (1m)', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value ' + lc + '">' + d.load['1min'] + '</div><div class="rtsm-popup-subtitle">5m: ' + d.load['5min'] + ' | 15m: ' + d.load['15min'] + '</div></div><div class="rtsm-popup-card"><h4><?php _e('CPU', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.cpu_usage + '%</div></div><div class="rtsm-popup-card"><h4><?php _e('Memory', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.memory.used + 'MB</div><div class="rtsm-popup-subtitle">' + d.memory.percent + '% of ' + d.memory.total + 'MB</div></div><div class="rtsm-popup-card"><h4><?php _e('Connections', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.connections + '</div></div></div>';
+        const statsHtml = '<div class="rtsm-popup-card ' + lc + '"><h4><?php _e('Load (1m)', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value ' + lc + '">' + d.load['1min'] + '</div><div class="rtsm-popup-subtitle">5m: ' + d.load['5min'] + ' | 15m: ' + d.load['15min'] + '</div></div>' +
+            '<div class="rtsm-popup-card"><h4><?php _e('CPU', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.cpu_usage + '%</div></div>' +
+            '<div class="rtsm-popup-card"><h4><?php _e('Memory', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.memory.used + 'MB</div><div class="rtsm-popup-subtitle">' + d.memory.percent + '% of ' + d.memory.total + 'MB</div></div>' +
+            '<div class="rtsm-popup-card"><h4><?php _e('Connections', 'realtime-server-monitor'); ?></h4><div class="rtsm-popup-value">' + d.connections + '</div></div>';
         
-        const isInitialized = $('#rtsm-process-table').length > 0;
-        
-        if (isInitialized) {
-            // Only update the stats cards, DON'T reload processes or touch filters
-            if ($('.rtsm-popup-grid').length) {
-                $('.rtsm-popup-grid').replaceWith(statsHtml);
-            }
-        } else {
-            // First time - build structure with current filter highlighted
-            const allClass = currentFilter === 'all' ? 'active' : '';
-            const cpuClass = currentFilter === 'high-cpu' ? 'active' : '';
-            const phpClass = currentFilter === 'php' ? 'active' : '';
-            const pythonClass = currentFilter === 'python' ? 'active' : '';
-            const nodeClass = currentFilter === 'node' ? 'active' : '';
-            const mysqlClass = currentFilter === 'mysql' ? 'active' : '';
-            
-            $('#rtsm-popup-content').html(statsHtml + '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4><div class="rtsm-filter"><button data-filter="all" class="' + allClass + '">All</button><button data-filter="high-cpu" class="' + cpuClass + '">High CPU</button><button data-filter="php" class="' + phpClass + '">PHP</button><button data-filter="python" class="' + pythonClass + '">Python</button><button data-filter="node" class="' + nodeClass + '">Node</button><button data-filter="mysql" class="' + mysqlClass + '">MySQL</button></div><table class="rtsm-table"><thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead><tbody id="rtsm-process-table"><tr><td colspan="7" style="text-align:center;"><?php _e('Loading...', 'realtime-server-monitor'); ?></td></tr></tbody></table><p style="text-align: center; font-size: 10px; color: #999; margin-top: 10px;">Last: ' + d.timestamp + ' • <?php echo get_option('rtsm_refresh_interval', 10); ?>s</p>');
-            
-            // Use event delegation to handle filter clicks
-            $('#rtsm-popup-content').off('click', '.rtsm-filter button').on('click', '.rtsm-filter button', function() {
-                loadProcesses($(this).data('filter'));
-            });
-            
-            // Load with current filter
-            loadProcesses(currentFilter);
-        }
+        $('.rtsm-popup-grid').html(statsHtml);
+        $('#rtsm-timestamp').text('Last: ' + d.timestamp + ' • <?php echo get_option('rtsm_refresh_interval', 10); ?>s');
     }
     
     $(document).ready(function() {
@@ -124,7 +133,9 @@
             isOpen = !isOpen;
             $('#rtsm-popup').toggleClass('active');
             if (isOpen) { 
+                buildPopup();
                 update(); 
+                loadProcesses(currentFilter);
                 popupInterval = setInterval(update, <?php echo get_option('rtsm_refresh_interval', 10) * 1000; ?>); 
             } else { 
                 if (popupInterval) {
