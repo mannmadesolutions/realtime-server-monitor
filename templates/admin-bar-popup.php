@@ -93,14 +93,28 @@
         const isInitialized = $('#rtsm-process-table').length > 0;
         
         if (isInitialized) {
-            // Only update the stats cards, DON'T reload processes
-            $('.rtsm-popup-grid').replaceWith(statsHtml);
+            // Only update the stats cards, DON'T reload processes or touch filters
+            if ($('.rtsm-popup-grid').length) {
+                $('.rtsm-popup-grid').replaceWith(statsHtml);
+            }
         } else {
-            // First time - build structure and load processes
-            $('#rtsm-popup-content').html(statsHtml + '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4><div class="rtsm-filter"><button data-filter="all" class="active">All</button><button data-filter="high-cpu">High CPU</button><button data-filter="php">PHP</button><button data-filter="python">Python</button><button data-filter="node">Node</button><button data-filter="mysql">MySQL</button></div><table class="rtsm-table"><thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead><tbody id="rtsm-process-table"><tr><td colspan="7" style="text-align:center;"><?php _e('Loading...', 'realtime-server-monitor'); ?></td></tr></tbody></table><p style="text-align: center; font-size: 10px; color: #999; margin-top: 10px;">Last: ' + d.timestamp + ' • <?php echo get_option('rtsm_refresh_interval', 10); ?>s</p>');
-            $('.rtsm-filter button').on('click', function() { loadProcesses($(this).data('filter')); });
-            // Initial load
-            loadProcesses('all');
+            // First time - build structure with current filter highlighted
+            const allClass = currentFilter === 'all' ? 'active' : '';
+            const cpuClass = currentFilter === 'high-cpu' ? 'active' : '';
+            const phpClass = currentFilter === 'php' ? 'active' : '';
+            const pythonClass = currentFilter === 'python' ? 'active' : '';
+            const nodeClass = currentFilter === 'node' ? 'active' : '';
+            const mysqlClass = currentFilter === 'mysql' ? 'active' : '';
+            
+            $('#rtsm-popup-content').html(statsHtml + '<h4><?php _e('Process Monitor', 'realtime-server-monitor'); ?></h4><div class="rtsm-filter"><button data-filter="all" class="' + allClass + '">All</button><button data-filter="high-cpu" class="' + cpuClass + '">High CPU</button><button data-filter="php" class="' + phpClass + '">PHP</button><button data-filter="python" class="' + pythonClass + '">Python</button><button data-filter="node" class="' + nodeClass + '">Node</button><button data-filter="mysql" class="' + mysqlClass + '">MySQL</button></div><table class="rtsm-table"><thead><tr><th>PID</th><th>User</th><th>CPU</th><th>Mem</th><th>Time</th><th>Command</th><th>Kill</th></tr></thead><tbody id="rtsm-process-table"><tr><td colspan="7" style="text-align:center;"><?php _e('Loading...', 'realtime-server-monitor'); ?></td></tr></tbody></table><p style="text-align: center; font-size: 10px; color: #999; margin-top: 10px;">Last: ' + d.timestamp + ' • <?php echo get_option('rtsm_refresh_interval', 10); ?>s</p>');
+            
+            // Use event delegation to handle filter clicks
+            $('#rtsm-popup-content').off('click', '.rtsm-filter button').on('click', '.rtsm-filter button', function() {
+                loadProcesses($(this).data('filter'));
+            });
+            
+            // Load with current filter
+            loadProcesses(currentFilter);
         }
     }
     
@@ -109,13 +123,32 @@
             e.preventDefault();
             isOpen = !isOpen;
             $('#rtsm-popup').toggleClass('active');
-            if (isOpen) { update(); popupInterval = setInterval(update, <?php echo get_option('rtsm_refresh_interval', 10) * 1000; ?>); }
-            else { clearInterval(popupInterval); popupInterval = null; }
+            if (isOpen) { 
+                update(); 
+                popupInterval = setInterval(update, <?php echo get_option('rtsm_refresh_interval', 10) * 1000; ?>); 
+            } else { 
+                if (popupInterval) {
+                    clearInterval(popupInterval); 
+                    popupInterval = null;
+                }
+            }
         });
-        $('#rtsm-close').on('click', function() { isOpen = false; $('#rtsm-popup').removeClass('active'); if (popupInterval) clearInterval(popupInterval); });
+        $('#rtsm-close').on('click', function() { 
+            isOpen = false; 
+            $('#rtsm-popup').removeClass('active'); 
+            if (popupInterval) {
+                clearInterval(popupInterval);
+                popupInterval = null;
+            }
+        });
         $(document).on('click', function(e) {
             if (isOpen && !$(e.target).closest('#rtsm-popup').length && !$(e.target).closest('#wp-admin-bar-rtsm-server-monitor').length) {
-                isOpen = false; $('#rtsm-popup').removeClass('active'); if (popupInterval) clearInterval(popupInterval);
+                isOpen = false; 
+                $('#rtsm-popup').removeClass('active'); 
+                if (popupInterval) {
+                    clearInterval(popupInterval);
+                    popupInterval = null;
+                }
             }
         });
         setInterval(function() { if (!isOpen) update(); }, <?php echo get_option('rtsm_refresh_interval', 10) * 1000; ?>);
