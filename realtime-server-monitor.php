@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Real-Time Server Monitor
- * Plugin URI: https://github.com/mannmade/realtime-server-monitor
+ * Plugin URI: https://mannmade.us
  * Description: Real-time server monitoring with admin bar widget, detailed process viewer, and process management. Works across all hosting platforms.
  * Version: 1.0.0
  * Author: MannMade Solutions
